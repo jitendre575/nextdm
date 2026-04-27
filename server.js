@@ -128,9 +128,9 @@ async function getDomainInfo(domain) {
   try {
     return await getRDAPInfo(domain);
   } catch (rdapErr) {
-    // RDAP failed — fall back to traditional WHOIS
+    // RDAP failed — fall back to traditional WHOIS (with 3s timeout for Vercel compatibility)
     try {
-      const results = await whois(domain);
+      const results = await whois(domain, { timeout: 3000 });
       const data = Array.isArray(results) ? results[0] : results;
 
       const expiryDate = data.registryExpiryDate || data.registrarRegistrationExpirationDate ||
