@@ -1,7 +1,6 @@
 const express = require('express');
 const tls = require('tls');
 const path = require('path');
-const whois = require('whois-json');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const psl = require('psl');
@@ -122,51 +121,25 @@ async function getRDAPInfo(domain) {
   };
 }
 
-// ─── Domain WHOIS Check (RDAP first, WHOIS fallback) ─────────────────
+// ─── Domain WHOIS Check (RDAP first) ─────────────────
 async function getDomainInfo(domain) {
-  // Try RDAP first (supports all modern TLDs)
+  // Try RDAP (supports all modern TLDs, uses HTTP so it works on Vercel)
   try {
     return await getRDAPInfo(domain);
   } catch (rdapErr) {
-    // RDAP failed — fall back to traditional WHOIS (with 3s timeout for Vercel compatibility)
-    try {
-      const results = await whois(domain, { timeout: 3000 });
-      const data = Array.isArray(results) ? results[0] : results;
-
-      const expiryDate = data.registryExpiryDate || data.registrarRegistrationExpirationDate ||
-        data.expirationDate || data.expiresOn || data.expires || data.domainExpirationDate ||
-        data.expiryDate || data.paidTill || null;
-
-      const creationDate = data.creationDate || data.createdDate || data.created ||
-        data.registrationDate || data.domainRegistrationDate || null;
-
-      const updatedDate = data.updatedDate || data.lastUpdated || data.updated || null;
-
-      const registrar = data.registrar || data.registrarName || 'Unknown';
-
-      const nameServers = data.nameServer || data.nameServers || data.nserver || 'N/A';
-
-      let daysLeft = null;
-      if (expiryDate) {
-        const expiry = new Date(expiryDate);
-        daysLeft = Math.ceil((expiry - new Date()) / (1000 * 60 * 60 * 24));
-      }
-
-      return {
-        domainName: data.domainName || domain,
-        registrar,
-        creationDate,
-        updatedDate,
-        expiryDate,
-        daysLeft,
-        nameServers: typeof nameServers === 'string' ? nameServers :
-                     Array.isArray(nameServers) ? nameServers.join(', ') : String(nameServers),
-        status: data.domainStatus || data.status || 'N/A',
-        source: 'WHOIS'
-      };
-    } catch (whoisErr) {
-      throw new Error(`Domain lookup failed. RDAP: ${rdapErr.message} | WHOIS: ${whoisErr.message}`);
-    }
+    // If RDAP fails (some old ccTLDs), we gracefully return a fallback object
+    // instead of crashing Vercel with a native WHOIS socket request.
+    return {
+      domainName: domain,
+      registrar: 'Unknown (Not supported by RDAP)',
+      creationDate: null,
+      updatedDate: null,
+      expiryDate: null,
+      daysLeft: null,
+      nameServers: 'N/A',
+      status: 'N/A',
+      source: 'N/A'
+    };
   }
 }
 
