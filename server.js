@@ -414,7 +414,11 @@ app.post('/api/bulk-check', async (req, res) => {
 });
 
 // ─── Start Server ────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`\n🌐 Domain & SSL Checker is running!`);
-  console.log(`📡 Open http://localhost:${PORT} in your browser\n`);
-});
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`\n🌐 Domain & SSL Checker is running!`);
+    console.log(`📡 Open http://localhost:${PORT} in your browser\n`);
+  });
+}
+
+module.exports = app;
